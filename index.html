@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>席番号</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f4f6f9;--surface:#fff;--border:#dde2ec;
+  --accent:#3b5bdb;--accent-light:#eef2ff;
+  --text:#1c2333;--sub:#6b7a99;
+  --danger:#e03131;
+  --sa-bg:#eef2ff;--sa-bd:#b8c7f5;
+  --sb-bg:#fff8ee;--sb-bd:#e8d5a3;
+}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:20px 14px 60px}
+
+.header{max-width:600px;margin:0 auto 20px;display:flex;justify-content:flex-end}
+.manage-btn{font-size:12px;color:var(--sub);background:none;border:1px solid var(--border);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:'Noto Sans JP',sans-serif}
+.manage-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--surface)}
+
+.date-heading{max-width:600px;margin:0 auto 8px;font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.01em}
+.instruction{max-width:600px;margin:0 auto 16px;font-size:12px;color:var(--sub);line-height:1.7}
+
+.name-table-wrap{max-width:600px;margin:0 auto 20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.name-table-header{padding:10px 16px;border-bottom:1px solid var(--border)}
+.name-table-header h2{font-size:12px;font-weight:500;color:var(--sub);letter-spacing:.06em;text-transform:uppercase}
+.name-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-flow:column;gap:1px;background:var(--border)}
+.name-cell{background:var(--surface);padding:7px 8px;display:flex;align-items:center;gap:6px;min-width:0}
+.name-cell-seat{font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:var(--accent);background:var(--accent-light);border-radius:4px;padding:2px 4px;flex-shrink:0;width:36px;text-align:center}
+.name-cell-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.diagram-wrap{max-width:600px;margin:0 auto 20px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px}
+.diagram-wrap-title{font-size:12px;font-weight:500;color:var(--sub);letter-spacing:.06em;text-transform:uppercase;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.diagram-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.diagram-col{display:flex;flex-direction:column;gap:5px}
+.diagram-pair{display:flex;gap:3px;border:1.5px solid var(--border);border-radius:7px;padding:3px 4px;background:#fafbfd}
+.diagram-seat{flex:1;background:var(--sa-bg);border:1px solid var(--sa-bd);border-radius:4px;padding:4px 2px;font-family:'DM Mono',monospace;font-size:10px;color:var(--sub);text-align:center}
+.diagram-seat.b{background:var(--sb-bg);border-color:var(--sb-bd)}
+
+.manage-panel{max-width:600px;margin:0 auto 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;display:none}
+.manage-panel.open{display:block}
+.manage-panel-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.manage-panel-header h2{font-size:13px;font-weight:500;color:var(--sub);letter-spacing:.05em;text-transform:uppercase;flex:1}
+.close-panel-btn{background:none;border:none;font-size:16px;color:var(--sub);cursor:pointer;padding:2px 6px;line-height:1}
+.shuffle-btn{font-size:12px;font-family:'Noto Sans JP',sans-serif;font-weight:700;color:var(--accent);background:var(--accent-light);border:1px solid var(--accent);border-radius:6px;padding:5px 12px;cursor:pointer}
+.shuffle-btn:hover{background:var(--accent);color:#fff}
+.member-section{padding:14px 16px;border-bottom:1px solid var(--border)}
+.member-section:last-child{border-bottom:none}
+.member-section-title{font-size:11px;font-weight:500;color:var(--sub);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
+.member-btn-grid{display:flex;flex-wrap:wrap;gap:7px}
+.member-toggle{font-family:'Noto Sans JP',sans-serif;font-size:13px;font-weight:700;padding:6px 14px;border-radius:20px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer;transition:opacity .12s}
+.member-toggle.off{background:var(--surface);color:var(--sub);border-color:var(--border)}
+.member-toggle:active{opacity:.7}
+
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:14px;padding:26px 22px;width:340px;max-width:92vw;box-shadow:0 8px 40px rgba(0,0,0,.16)}
+.modal h2{font-size:16px;font-weight:700;margin-bottom:16px}
+.modal input[type="password"]{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;font-family:'DM Mono',monospace;outline:none;margin-bottom:10px;transition:border-color .15s}
+.modal input:focus{border-color:var(--accent)}
+.modal-err{font-size:12px;color:var(--danger);min-height:16px;margin-bottom:10px}
+.btn-row{display:flex;gap:8px}
+.btn{flex:1;padding:10px;border:none;border-radius:8px;font-size:14px;font-family:'Noto Sans JP',sans-serif;font-weight:700;cursor:pointer}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-ghost{background:var(--bg);color:var(--sub)}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(16px);background:#1c2333;color:#fff;font-size:13px;padding:8px 18px;border-radius:20px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:200;white-space:nowrap}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.loading{max-width:600px;margin:40px auto;text-align:center;color:var(--sub);font-size:14px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <button class="manage-btn" onclick="openManage()">メンバー管理</button>
+</div>
+
+<div class="date-heading" id="dateHeading">読み込み中…</div>
+<p class="instruction">割り当てられた番号の席に着席してください。授業5分前になっても隣が空席の場合は、後方からペアのいない方が前の空席へ移動してください。調整が必要な場合は、当日その場でお願いします。</p>
+
+<div class="name-table-wrap">
+  <div class="name-table-header"><h2>名前と席番号</h2></div>
+  <div class="name-grid" id="nameGrid"><div class="loading">読み込み中…</div></div>
+</div>
+
+<div class="diagram-wrap">
+  <div class="diagram-wrap-title">席番号レイアウト</div>
+  <div class="diagram-grid">
+    <div class="diagram-col" id="diagramLeft"></div>
+    <div class="diagram-col" id="diagramRight"></div>
+  </div>
+</div>
+
+<div class="manage-panel" id="managePanel">
+  <div class="manage-panel-header">
+    <h2>メンバー管理</h2>
+    <button class="shuffle-btn" onclick="manualShuffle()">🔀 今すぐシャッフル</button>
+    <button class="close-panel-btn" onclick="closeManage()">✕</button>
+  </div>
+  <div class="member-section">
+    <div class="member-section-title">在席（タップでOFF）</div>
+    <div class="member-btn-grid" id="memberOnGrid"></div>
+  </div>
+  <div class="member-section" id="offSection" style="display:none">
+    <div class="member-section-title">欠席（タップでON）</div>
+    <div class="member-btn-grid" id="memberOffGrid"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="pwModal">
+  <div class="modal">
+    <h2>🔒 管理者パスワード</h2>
+    <input type="password" id="pwInput" placeholder="パスワード"
+      onkeydown="if(event.key==='Enter')checkPassword()">
+    <div class="modal-err" id="pwErr"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closePwModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="checkPassword()">ログイン</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, onValue } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+// ============================================================
+// 🔧 ここにFirebaseの設定を貼り付けてください
+// Firebase Console → プロジェクト設定 → マイアプリ → CDN の firebaseConfig
+// ============================================================
+const firebaseConfig = {
+  apiKey:            "AIzaSyAqQQPJQwOMaWlXaHbhK63LvcB4fRQ-j5w",
+  authDomain:        "pair2606v1.firebaseapp.com",
+  databaseURL:       "https://pair2606v1-default-rtdb.firebaseio.com",
+  projectId:         "pair2606v1",
+  storageBucket:     "pair2606v1.firebasestorage.app",
+  messagingSenderId: "635909917878",
+  appId:             "1:635909917878:web:b03cdf2d2d13b664132a17"
+};
+// ============================================================
+
+const ADMIN_PASSWORD = 'admin1234';
+
+const DEFAULT_NAMES = [
+  '池田','大石','小田','鹿子島','笠原','上林','北島','桑原',
+  '小賀坂','古塩','小辻','笹月','庄子','新宅','杉浦','鈴木',
+  '髙野','髙橋','棚瀬','德野','鳴海','西山','藤澤','細道',
+  '南舘','森','山本','草田','板倉','阿部'
+];
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+const stateRef = ref(db, 'classState');
+
+let adminUnlocked = false;
+
+// Firebase から読み込んだ最新状態
+let currentState = {
+  members: [...DEFAULT_NAMES],
+  manualSeed: null
+};
+
+// ── RNG / Shuffle ──
+function seededRng(seed) {
+  let s = (seed >>> 0);
+  return function() {
+    s = (Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0);
+    s = (Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0);
+    s = (s ^ (s >>> 16)) >>> 0;
+    return s / 0x100000000;
+  };
+}
+function shuffle(arr, rng) {
+  var a = arr.slice();
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(rng() * (i + 1));
+    var t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+function getDaySeed() {
+  var jst = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Tokyo'}));
+  return ((jst.getFullYear() * 10000 + (jst.getMonth()+1) * 100 + jst.getDate()) >>> 0);
+}
+function formatDate() {
+  var jst = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Tokyo'}));
+  return jst.getFullYear() + '/' +
+    String(jst.getMonth()+1).padStart(2,'0') + '/' +
+    String(jst.getDate()).padStart(2,'0');
+}
+
+function buildSeatIds() {
+  var ids = [];
+  for (var r = 1; r <= 8;  r++) { ids.push(r+'-A'); ids.push(r+'-B'); }
+  for (var r = 9; r <= 15; r++) { ids.push(r+'-A'); ids.push(r+'-B'); }
+  return ids;
+}
+function assignSeats(members, manualSeed) {
+  var seed = (manualSeed != null) ? manualSeed : getDaySeed();
+  var rng  = seededRng(seed);
+  var shuffled = shuffle(members, rng);
+  var seatIds  = buildSeatIds();
+  var map = {};
+  for (var i = 0; i < seatIds.length; i++) {
+    map[seatIds[i]] = shuffled[i] || null;
+  }
+  return map;
+}
+
+// ── 描画（Firebaseから受け取ったstateで動く）──
+function render(state) {
+  var members    = state.members    || DEFAULT_NAMES;
+  var manualSeed = state.manualSeed || null;
+  var seatMap    = assignSeats(members, manualSeed);
+
+  document.getElementById('dateHeading').textContent = formatDate() + ' の席';
+
+  // 名前→席
+  var nameToSeat = {};
+  Object.keys(seatMap).forEach(function(seat) {
+    if (seatMap[seat]) nameToSeat[seatMap[seat]] = seat;
+  });
+
+  // 名前グリッド
+  var nameGrid = document.getElementById('nameGrid');
+  nameGrid.innerHTML = '';
+  nameGrid.style.gridTemplateRows = 'repeat(' + Math.ceil(members.length / 3) + ', auto)';
+  members.forEach(function(name) {
+    var seat = nameToSeat[name] || '—';
+    var cell = document.createElement('div');
+    cell.className = 'name-cell';
+    cell.innerHTML =
+      '<span class="name-cell-seat">' + seat + '</span>' +
+      '<span class="name-cell-name">' + name + '</span>';
+    nameGrid.appendChild(cell);
+  });
+
+  // レイアウト図（静的なので一度だけ描けばよいが毎回描いても問題なし）
+  var dL = document.getElementById('diagramLeft');
+  var dR = document.getElementById('diagramRight');
+  dL.innerHTML = ''; dR.innerHTML = '';
+  for (var r = 1; r <= 8;  r++) {
+    var p = document.createElement('div'); p.className = 'diagram-pair';
+    p.innerHTML = '<div class="diagram-seat">' + r + '-A</div><div class="diagram-seat b">' + r + '-B</div>';
+    dL.appendChild(p);
+  }
+  for (var r = 9; r <= 15; r++) {
+    var p = document.createElement('div'); p.className = 'diagram-pair';
+    p.innerHTML = '<div class="diagram-seat">' + r + '-A</div><div class="diagram-seat b">' + r + '-B</div>';
+    dR.appendChild(p);
+  }
+
+  // 管理パネルが開いていたらトグルも更新
+  if (document.getElementById('managePanel').classList.contains('open')) {
+    renderMemberToggles(members);
+  }
+}
+
+// ── Firebase にstateを書く ──
+function saveState(newState) {
+  set(stateRef, {
+    members:    newState.members,
+    manualSeed: newState.manualSeed !== null ? newState.manualSeed : 0
+  });
+}
+
+// ── Firebase をリアルタイムで購読 ──
+onValue(stateRef, function(snapshot) {
+  var data = snapshot.val();
+  if (data && data.members) {
+    currentState = {
+      members:    data.members,
+      manualSeed: (data.manualSeed && data.manualSeed !== 0) ? data.manualSeed : null
+    };
+  } else {
+    // 初回：デフォルト値をFirebaseに書き込む
+    currentState = { members: [...DEFAULT_NAMES], manualSeed: null };
+    saveState(currentState);
+  }
+  render(currentState);
+});
+
+// ── 管理パネル ──
+function renderMemberToggles(members) {
+  var onGrid     = document.getElementById('memberOnGrid');
+  var offGrid    = document.getElementById('memberOffGrid');
+  var offSection = document.getElementById('offSection');
+  onGrid.innerHTML = ''; offGrid.innerHTML = '';
+
+  DEFAULT_NAMES.forEach(function(name) {
+    var isOn = members.indexOf(name) !== -1;
+    var btn  = document.createElement('button');
+    btn.className   = 'member-toggle' + (isOn ? '' : ' off');
+    btn.textContent = name;
+    btn.onclick = (function(n, on) {
+      return function() { toggleMember(n, !on); };
+    })(name, isOn);
+    if (isOn) onGrid.appendChild(btn);
+    else       offGrid.appendChild(btn);
+  });
+
+  var offCount = DEFAULT_NAMES.filter(function(n){ return members.indexOf(n) === -1; }).length;
+  offSection.style.display = offCount > 0 ? 'block' : 'none';
+}
+
+function toggleMember(name, turnOn) {
+  var members = currentState.members.slice();
+  if (turnOn) {
+    var defaultIdx = DEFAULT_NAMES.indexOf(name);
+    var insertAt   = 0;
+    for (var i = defaultIdx - 1; i >= 0; i--) {
+      var pos = members.indexOf(DEFAULT_NAMES[i]);
+      if (pos !== -1) { insertAt = pos + 1; break; }
+    }
+    members.splice(insertAt, 0, name);
+    showToast(name + ' をONにしました');
+  } else {
+    members = members.filter(function(n){ return n !== name; });
+    showToast(name + ' をOFFにしました');
+  }
+  currentState.members = members;
+  saveState(currentState); // → onValue で全員に反映
+}
+
+window.manualShuffle = function() {
+  currentState.manualSeed = ((Date.now() ^ Math.floor(Math.random() * 0xfffff)) >>> 0);
+  saveState(currentState);
+  showToast('シャッフルしました');
+};
+
+window.openManage = function() {
+  if (adminUnlocked) {
+    document.getElementById('managePanel').classList.add('open');
+    renderMemberToggles(currentState.members);
+  } else {
+    document.getElementById('pwInput').value  = '';
+    document.getElementById('pwErr').textContent = '';
+    document.getElementById('pwModal').classList.add('open');
+    setTimeout(function(){ document.getElementById('pwInput').focus(); }, 100);
+  }
+};
+window.closeManage   = function() { document.getElementById('managePanel').classList.remove('open'); };
+window.closePwModal  = function() { document.getElementById('pwModal').classList.remove('open'); };
+window.checkPassword = function() {
+  if (document.getElementById('pwInput').value === ADMIN_PASSWORD) {
+    closePwModal();
+    adminUnlocked = true;
+    document.getElementById('managePanel').classList.add('open');
+    renderMemberToggles(currentState.members);
+  } else {
+    document.getElementById('pwErr').textContent = 'パスワードが違います';
+    document.getElementById('pwInput').value = '';
+    document.getElementById('pwInput').focus();
+  }
+};
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2400);
+}
+window.showToast = showToast;
+
+// ── 0:00 自動更新（日付表示＋日次シードリセット）──
+function scheduleMidnight() {
+  var jst  = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Tokyo'}));
+  var next = new Date(jst);
+  next.setDate(next.getDate() + 1);
+  next.setHours(0, 0, 0, 0);
+  setTimeout(function() {
+    // 手動シードをリセット（日次シャッフルに戻す）
+    currentState.manualSeed = null;
+    saveState(currentState);
+    scheduleMidnight();
+  }, next - jst);
+}
+scheduleMidnight();
+</script>
+</body>
+</html>
