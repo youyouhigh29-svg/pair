@@ -203,14 +203,37 @@ function buildSeatIds() {
   for (var r = 9; r <= 15; r++) { ids.push(r+'-A'); ids.push(r+'-B'); }
   return ids;
 }
+function getDayOffset() {
+  // 基準日からの日数 × 7 でローテーション
+  var base = 20260601; // 基準日（変更不要）
+  var jst  = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Tokyo'}));
+  var today = jst.getFullYear() * 10000 + (jst.getMonth()+1) * 100 + jst.getDate();
+  // 基準日からの経過日数を計算
+  var baseDate  = new Date(2026, 5, 1); // 2026/06/01
+  var todayDate = new Date(jst.getFullYear(), jst.getMonth(), jst.getDate());
+  var diffDays  = Math.round((todayDate - baseDate) / 86400000);
+  return ((diffDays * 7) % 30 + 30) % 30;
+}
+
 function assignSeats(members, manualSeed) {
-  var seed = (manualSeed != null) ? manualSeed : getDaySeed();
-  var rng  = seededRng(seed);
-  var shuffled = shuffle(members, rng);
-  var seatIds  = buildSeatIds();
+  var seatIds = buildSeatIds();
+  var rotated;
+  if (manualSeed != null) {
+    // 手動シャッフル時はシードベースのランダム
+    var rng = seededRng(manualSeed);
+    rotated = shuffle(members, rng);
+  } else {
+    // 通常はローテーション（7つずつずらす）
+    var offset  = getDayOffset();
+    var allNames = [...DEFAULT_NAMES]; // 常に全員の順番ベース
+    // offsetぶんローテーション
+    rotated = allNames.slice(offset).concat(allNames.slice(0, offset));
+    // membersにいない人を除外して詰める
+    rotated = rotated.filter(function(n){ return members.indexOf(n) !== -1; });
+  }
   var map = {};
   for (var i = 0; i < seatIds.length; i++) {
-    map[seatIds[i]] = shuffled[i] || null;
+    map[seatIds[i]] = rotated[i] || null;
   }
   return map;
 }
@@ -268,21 +291,35 @@ function render(state) {
 function saveState(newState) {
   set(stateRef, {
     members:    newState.members,
-    manualSeed: newState.manualSeed !== null ? newState.manualSeed : 0
+    manualSeed: newState.manualSeed !== null ? newState.manualSeed : 0,
+    lastDate:   newState.lastDate || 0
   });
 }
 
 // ── Firebase をリアルタイムで購読 ──
 onValue(stateRef, function(snapshot) {
   var data = snapshot.val();
+  var todaySeed = getDaySeed();
+
   if (data && data.members) {
+    // 日付が変わっていたら手動シードをリセット
+    if (data.lastDate && data.lastDate !== todaySeed) {
+      data.manualSeed = 0;
+      data.lastDate   = todaySeed;
+      set(stateRef, {
+        members:    data.members,
+        manualSeed: 0,
+        lastDate:   todaySeed
+      });
+    }
     currentState = {
       members:    data.members,
-      manualSeed: (data.manualSeed && data.manualSeed !== 0) ? data.manualSeed : null
+      manualSeed: (data.manualSeed && data.manualSeed !== 0) ? data.manualSeed : null,
+      lastDate:   todaySeed
     };
   } else {
     // 初回：デフォルト値をFirebaseに書き込む
-    currentState = { members: [...DEFAULT_NAMES], manualSeed: null };
+    currentState = { members: [...DEFAULT_NAMES], manualSeed: null, lastDate: todaySeed };
     saveState(currentState);
   }
   render(currentState);
@@ -332,6 +369,7 @@ function toggleMember(name, turnOn) {
 
 window.manualShuffle = function() {
   currentState.manualSeed = ((Date.now() ^ Math.floor(Math.random() * 0xfffff)) >>> 0);
+  currentState.lastDate   = getDaySeed();
   saveState(currentState);
   showToast('シャッフルしました');
 };
@@ -369,21 +407,6 @@ function showToast(msg) {
   setTimeout(function(){ t.classList.remove('show'); }, 2400);
 }
 window.showToast = showToast;
-
-// ── 0:00 自動更新（日付表示＋日次シードリセット）──
-function scheduleMidnight() {
-  var jst  = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Tokyo'}));
-  var next = new Date(jst);
-  next.setDate(next.getDate() + 1);
-  next.setHours(0, 0, 0, 0);
-  setTimeout(function() {
-    // 手動シードをリセット（日次シャッフルに戻す）
-    currentState.manualSeed = null;
-    saveState(currentState);
-    scheduleMidnight();
-  }, next - jst);
-}
-scheduleMidnight();
 </script>
 </body>
 </html>
