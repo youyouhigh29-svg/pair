@@ -204,36 +204,94 @@ function buildSeatIds() {
   return ids;
 }
 function getDayOffset() {
-  // 基準日からの日数 × 7 でローテーション
-  var base = 20260601; // 基準日（変更不要）
-  var jst  = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Tokyo'}));
-  var today = jst.getFullYear() * 10000 + (jst.getMonth()+1) * 100 + jst.getDate();
-  // 基準日からの経過日数を計算
   var baseDate  = new Date(2026, 5, 1); // 2026/06/01
+  var jst       = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Tokyo'}));
   var todayDate = new Date(jst.getFullYear(), jst.getMonth(), jst.getDate());
   var diffDays  = Math.round((todayDate - baseDate) / 86400000);
-  return ((diffDays * 7) % 30 + 30) % 30;
+  return diffDays;
 }
 
 function assignSeats(members, manualSeed) {
   var seatIds = buildSeatIds();
-  var rotated;
+
   if (manualSeed != null) {
-    // 手動シャッフル時はシードベースのランダム
+    // 手動シャッフル時はランダム
     var rng = seededRng(manualSeed);
-    rotated = shuffle(members, rng);
-  } else {
-    // 通常はローテーション（7つずつずらす）
-    var offset  = getDayOffset();
-    var allNames = [...DEFAULT_NAMES]; // 常に全員の順番ベース
-    // offsetぶんローテーション
-    rotated = allNames.slice(offset).concat(allNames.slice(0, offset));
-    // membersにいない人を除外して詰める
-    rotated = rotated.filter(function(n){ return members.indexOf(n) !== -1; });
+    var shuffled = shuffle(members, rng);
+    var map = {};
+    for (var i = 0; i < seatIds.length; i++) {
+      map[seatIds[i]] = shuffled[i] || null;
+    }
+    return map;
   }
+
+  // ── ラウンドロビン方式 ──
+  // 外側（固定）: DEFAULT_NAMESの順、membersにいる人だけ
+  // 内側（逆順・回転）: DEFAULT_NAMESの逆順、membersにいる人だけ
+  var outer = DEFAULT_NAMES.filter(function(n){ return members.indexOf(n) !== -1; });
+  var inner = DEFAULT_NAMES.slice().reverse().filter(function(n){ return members.indexOf(n) !== -1; });
+  var n = outer.length; // 在席人数
+
+  var dayOffset = getDayOffset();
+
+  // 内側を反時計回りにdayOffsetぶん回転
+  var offset = dayOffset % n;
+  var rotatedInner = inner.slice(offset).concat(inner.slice(0, offset));
+
+  // ペアを作る（外側[i]と内側[i]）
+  // 同じ人同士になったら1つ追加ずらす
+  var pairs = [];
+  var used  = {};
+  for (var i = 0; i < n; i++) {
+    if (used[i]) continue;
+    var a = outer[i];
+    var bi = i;
+    // 自分と当たる場合は1つずらす
+    if (rotatedInner[bi] === a) {
+      bi = (bi + 1) % n;
+    }
+    var b = rotatedInner[bi];
+    // 逆ペア（b,a）がすでに登録済みならスキップ
+    var alreadyPaired = false;
+    for (var k = 0; k < pairs.length; k++) {
+      if ((pairs[k][0] === a && pairs[k][1] === b) ||
+          (pairs[k][0] === b && pairs[k][1] === a)) {
+        alreadyPaired = true; break;
+      }
+    }
+    if (!alreadyPaired && a !== b) {
+      pairs.push([a, b]);
+    }
+  }
+
+  // 奇数日：外側がA、偶数日：外側がB
+  var jst     = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Tokyo'}));
+  var isOdd   = jst.getDate() % 2 === 1;
+
+  var result = [];
+  for (var i = 0; i < pairs.length; i++) {
+    if (isOdd) {
+      result.push(pairs[i][0]); // A席
+      result.push(pairs[i][1]); // B席
+    } else {
+      result.push(pairs[i][1]); // A席
+      result.push(pairs[i][0]); // B席
+    }
+  }
+
+  // 奇数人の場合余りが出る（ペアになれない人）→ 末尾に追加
+  var paired = {};
+  for (var i = 0; i < pairs.length; i++) {
+    paired[pairs[i][0]] = true;
+    paired[pairs[i][1]] = true;
+  }
+  members.forEach(function(m) {
+    if (!paired[m]) result.push(m);
+  });
+
   var map = {};
   for (var i = 0; i < seatIds.length; i++) {
-    map[seatIds[i]] = rotated[i] || null;
+    map[seatIds[i]] = result[i] || null;
   }
   return map;
 }
