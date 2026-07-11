@@ -208,14 +208,24 @@ function getDayOffset() {
   var jst       = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Tokyo'}));
   var todayDate = new Date(jst.getFullYear(), jst.getMonth(), jst.getDate());
   var diffDays  = Math.round((todayDate - baseDate) / 86400000);
-  return diffDays;
+
+  var n = DEFAULT_NAMES.length; // 30
+  // 自分と当たる日はoffset=0またはoffset=n/2の日
+  // その日はスキップして次へ
+  var offset = diffDays % n;
+  // offset=0のとき: 外[i]と内[i]が同じ人（全員自分と当たる）→ スキップ
+  // 30人逆順の内側と合わせると、offset=0とoffset=15が自分と当たる日
+  // → その日は+1する
+  if (offset === 0 || offset === Math.floor(n / 2)) {
+    offset = (offset + 1) % n;
+  }
+  return offset;
 }
 
 function assignSeats(members, manualSeed) {
   var seatIds = buildSeatIds();
 
   if (manualSeed != null) {
-    // 手動シャッフル時はランダム
     var rng = seededRng(manualSeed);
     var shuffled = shuffle(members, rng);
     var map = {};
@@ -226,65 +236,42 @@ function assignSeats(members, manualSeed) {
   }
 
   // ── ラウンドロビン方式 ──
-  // 外側（固定）: DEFAULT_NAMESの順、membersにいる人だけ
-  // 内側（逆順・回転）: DEFAULT_NAMESの逆順、membersにいる人だけ
   var outer = DEFAULT_NAMES.filter(function(n){ return members.indexOf(n) !== -1; });
   var inner = DEFAULT_NAMES.slice().reverse().filter(function(n){ return members.indexOf(n) !== -1; });
-  var n = outer.length; // 在席人数
+  var n = outer.length;
 
-  var dayOffset = getDayOffset();
-
-  // 内側を反時計回りにdayOffsetぶん回転
-  var offset = dayOffset % n;
+  var offset = getDayOffset() % n;
   var rotatedInner = inner.slice(offset).concat(inner.slice(0, offset));
 
-  // ペアを作る（外側[i]と内側[i]）
-  // 同じ人同士になったら1つ追加ずらす
+  // ペアを作る（重複除去）
   var pairs = [];
-  var used  = {};
+  var paired = {};
   for (var i = 0; i < n; i++) {
-    if (used[i]) continue;
     var a = outer[i];
-    var bi = i;
-    // 自分と当たる場合は1つずらす
-    if (rotatedInner[bi] === a) {
-      bi = (bi + 1) % n;
-    }
-    var b = rotatedInner[bi];
-    // 逆ペア（b,a）がすでに登録済みならスキップ
-    var alreadyPaired = false;
-    for (var k = 0; k < pairs.length; k++) {
-      if ((pairs[k][0] === a && pairs[k][1] === b) ||
-          (pairs[k][0] === b && pairs[k][1] === a)) {
-        alreadyPaired = true; break;
-      }
-    }
-    if (!alreadyPaired && a !== b) {
-      pairs.push([a, b]);
-    }
+    var b = rotatedInner[i];
+    if (a === b) continue; // 自分と当たる場合はスキップ
+    if (paired[a] || paired[b]) continue;
+    pairs.push([a, b]);
+    paired[a] = true;
+    paired[b] = true;
   }
 
   // 奇数日：外側がA、偶数日：外側がB
-  var jst     = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Tokyo'}));
-  var isOdd   = jst.getDate() % 2 === 1;
+  var jst   = new Date(new Date().toLocaleString('en-US', {timeZone:'Asia/Tokyo'}));
+  var isOdd = jst.getDate() % 2 === 1;
 
   var result = [];
   for (var i = 0; i < pairs.length; i++) {
     if (isOdd) {
-      result.push(pairs[i][0]); // A席
-      result.push(pairs[i][1]); // B席
+      result.push(pairs[i][0]);
+      result.push(pairs[i][1]);
     } else {
-      result.push(pairs[i][1]); // A席
-      result.push(pairs[i][0]); // B席
+      result.push(pairs[i][1]);
+      result.push(pairs[i][0]);
     }
   }
 
-  // 奇数人の場合余りが出る（ペアになれない人）→ 末尾に追加
-  var paired = {};
-  for (var i = 0; i < pairs.length; i++) {
-    paired[pairs[i][0]] = true;
-    paired[pairs[i][1]] = true;
-  }
+  // ペアになれなかった人を末尾に
   members.forEach(function(m) {
     if (!paired[m]) result.push(m);
   });
@@ -468,3 +455,5 @@ window.showToast = showToast;
 </script>
 </body>
 </html>
+
+  
