@@ -347,23 +347,26 @@ onValue(stateRef, function(snapshot) {
   var todaySeed = getDaySeed();
 
   if (data && data.members) {
-    // 日付が変わっていたら手動シードをリセット
-    if (data.lastDate && data.lastDate !== todaySeed) {
-      data.manualSeed = 0;
-      data.lastDate   = todaySeed;
+    // 日付が変わっていたら手動シードを必ずリセット
+    if (!data.lastDate || data.lastDate !== todaySeed) {
       set(stateRef, {
         members:    data.members,
         manualSeed: 0,
         lastDate:   todaySeed
       });
+      currentState = {
+        members:    data.members,
+        manualSeed: null,
+        lastDate:   todaySeed
+      };
+    } else {
+      currentState = {
+        members:    data.members,
+        manualSeed: (data.manualSeed && data.manualSeed !== 0) ? data.manualSeed : null,
+        lastDate:   todaySeed
+      };
     }
-    currentState = {
-      members:    data.members,
-      manualSeed: (data.manualSeed && data.manualSeed !== 0) ? data.manualSeed : null,
-      lastDate:   todaySeed
-    };
   } else {
-    // 初回：デフォルト値をFirebaseに書き込む
     currentState = { members: [...DEFAULT_NAMES], manualSeed: null, lastDate: todaySeed };
     saveState(currentState);
   }
@@ -455,5 +458,3 @@ window.showToast = showToast;
 </script>
 </body>
 </html>
-
-  
