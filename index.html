@@ -342,17 +342,23 @@ function saveState(newState) {
 }
 
 // ── Firebase をリアルタイムで購読 ──
+var isResetting = false;
 onValue(stateRef, function(snapshot) {
+  if (isResetting) return;
+
   var data = snapshot.val();
   var todaySeed = getDaySeed();
 
   if (data && data.members) {
     // 日付が変わっていたら手動シードを必ずリセット
     if (!data.lastDate || data.lastDate !== todaySeed) {
+      isResetting = true;
       set(stateRef, {
         members:    data.members,
         manualSeed: 0,
         lastDate:   todaySeed
+      }).then(function() {
+        isResetting = false;
       });
       currentState = {
         members:    data.members,
