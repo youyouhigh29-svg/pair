@@ -151,7 +151,7 @@ const ADMIN_PASSWORD = 'admin1234';
 const DEFAULT_NAMES = [
   '池田','大石','小田','鹿子島','笠原','上林','北島','桑原',
   '小賀坂','古塩','小辻','笹月','庄子','新宅','杉浦','鈴木',
-  '髙野','髙橋','棚瀬','德野','鳴海','西山','藤澤','細道',
+  '髙野','髙橋','棚瀬','德野','鳴海','藤澤','細道',
   '南舘','森','山本','草田','板倉','阿部'
 ];
 
@@ -276,9 +276,16 @@ function assignSeats(members, manualSeed) {
     if (!paired[m]) result.push(m);
   });
 
+  // 席番号もローテーション（ペアごとずらす）
+  var baseDate2  = new Date(2026, 5, 1);
+  var todayDate2 = new Date(jst.getFullYear(), jst.getMonth(), jst.getDate());
+  var diffDays2  = Math.round((todayDate2 - baseDate2) / 86400000);
+  var seatOffset = (diffDays2 % (seatIds.length / 2)) * 2; // ペア単位でずらす
+  var rotatedSeats = seatIds.slice(seatOffset).concat(seatIds.slice(0, seatOffset));
+
   var map = {};
-  for (var i = 0; i < seatIds.length; i++) {
-    map[seatIds[i]] = result[i] || null;
+  for (var i = 0; i < rotatedSeats.length; i++) {
+    map[rotatedSeats[i]] = result[i] || null;
   }
   return map;
 }
