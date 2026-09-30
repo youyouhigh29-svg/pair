@@ -151,7 +151,7 @@ const ADMIN_PASSWORD = 'admin1234';
 const DEFAULT_NAMES = [
   '池田','大石','小田','鹿子島','笠原','上林','北島','桑原',
   '小賀坂','古塩','小辻','笹月','庄子','新宅','杉浦','鈴木',
-  '髙野','髙橋','棚瀬','德野','鳴海','藤澤','細道',
+  '髙野','髙橋','棚瀬','德野','鳴海','西山','藤澤','細道',
   '南舘','森','山本','草田','板倉','阿部'
 ];
 
@@ -304,16 +304,26 @@ function render(state) {
     if (seatMap[seat]) nameToSeat[seatMap[seat]] = seat;
   });
 
+  // ペアがいるか確認用マップ作成
+  var hasPair = {};
+  Object.keys(seatMap).forEach(function(seat) {
+    if (!seatMap[seat]) return;
+    var pairSeat = seat.endsWith('-A') ? seat.replace('-A','-B') : seat.replace('-B','-A');
+    hasPair[seatMap[seat]] = !!(seatMap[pairSeat]);
+  });
+
   // 名前グリッド
   var nameGrid = document.getElementById('nameGrid');
   nameGrid.innerHTML = '';
   nameGrid.style.gridTemplateRows = 'repeat(' + Math.ceil(members.length / 3) + ', auto)';
   members.forEach(function(name) {
     var seat = nameToSeat[name] || '—';
+    var noPair = seat !== '—' && !hasPair[name];
+    var seatLabel = noPair ? seat + '(-)' : seat;
     var cell = document.createElement('div');
     cell.className = 'name-cell';
     cell.innerHTML =
-      '<span class="name-cell-seat">' + seat + '</span>' +
+      '<span class="name-cell-seat">' + seatLabel + '</span>' +
       '<span class="name-cell-name">' + name + '</span>';
     nameGrid.appendChild(cell);
   });
